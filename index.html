@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Video Call Lobby</title>
+    <title>Online Classroom</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #111; }
         #jitsi-container { height: 100vh; width: 100vw; }
     </style>
 </head>
@@ -13,11 +13,20 @@
     <script>
         const domain = "meet.jit.si";
         const options = {
-            roomName: "PremiumSupport_" + Math.floor(Math.random() * 10000), // Random room ID
+            // CHANGE THIS name to your school or class name
+            roomName: "SansTeacherClassroom_2024", 
             width: "100%",
             height: "100%",
             parentNode: document.querySelector('#jitsi-container'),
-            configOverwrite: { prejoinPageEnabled: true }
+            configOverwrite: {
+                startWithAudioMuted: false,
+                prejoinPageEnabled: true
+            },
+            interfaceConfigOverwrite: {
+                // This makes it look cleaner for a classroom
+                SHOW_JITSI_WATERMARK: false,
+                DEFAULT_REMOTE_DISPLAY_NAME: 'Student'
+            }
         };
         const api = new JitsiMeetExternalAPI(domain, options);
     </script>
