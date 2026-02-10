@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -5,26 +6,26 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         body { background: #111; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #222; padding: 30px; border-radius: 15px; border: 1px solid #333; text-align: center; width: 300px; }
+        .card { background: #222; padding: 30px; border-radius: 15px; border: 1px solid #333; text-align: center; width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
         #jitsi-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: none; }
     </style>
 </head>
 <body>
 
     <div id="setup-screen" class="card">
-        <h2 id="header">Enter Details</h2>
-        <input type="text" id="roomInput" placeholder="Room Name (e.g. Math101)">
+        <h2>Classroom Login</h2>
+        <input type="text" id="roomInput" placeholder="Class Name (e.g. Math)">
         <input type="email" id="emailInput" placeholder="Your Email">
-        <button onclick="startProcess()">Join Class</button>
-        <p id="status" style="font-size: 12px; color: #aaa;"></p>
+        <button onclick="startProcess()">Check Balance & Join</button>
+        <p id="status" style="font-size: 13px; color: #aaa; margin-top: 15px;"></p>
     </div>
 
     <div id="jitsi-container"></div>
 
     <script>
-        // 1. FILL THIS OUT with your Supabase details from earlier
+        // 1. PLACE YOUR SUPABASE DETAILS HERE
         const SUPABASE_URL = 'https://bvhrzessikgxevlaxklv.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aHJ6ZXNzaWtneGV2bGF4a2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NDc3MDYsImV4cCI6MjA4NjMyMzcwNn0.HdDnBpxyURKVaW5p4a-K7KBS7auE_SNCi4JV074RKjE';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -34,7 +35,7 @@
         const roomFromUrl = urlParams.get('room');
         if (roomFromUrl) {
             document.getElementById('roomInput').value = roomFromUrl;
-            document.getElementById('roomInput').style.display = 'none'; // Hide it if it's already set
+            document.getElementById('roomInput').style.display = 'none'; 
         }
 
         async function startProcess() {
@@ -43,24 +44,24 @@
             const status = document.getElementById('status');
 
             if (!room || !email) {
-                status.innerText = "Please fill in all fields.";
+                status.innerText = "Please enter both room and email.";
                 return;
             }
 
-            status.innerText = "Checking balance...";
+            status.innerText = "Checking your balance...";
 
-            // 2. CHECK BALANCE in Supabase
+            // 2. CHECK THE DATABASE
             const { data, error } = await supabase.from('profiles').select('balance').eq('email', email).single();
 
             if (error || !data) {
-                status.innerText = "Error: User not found in database.";
+                status.innerText = "User not found. Did you add this email to Supabase?";
                 return;
             }
 
-            if (data.balance < 10) { // Assume 10 is the price per class
+            if (data.balance < 10) { 
                 status.innerText = "Insufficient balance ($" + data.balance + "). Please top up!";
             } else {
-                status.innerText = "Success! Opening class...";
+                status.innerText = "Balance confirmed! Opening class...";
                 launchJitsi(room, email);
             }
         }
