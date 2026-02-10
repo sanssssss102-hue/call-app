@@ -1,84 +1,120 @@
 
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Classroom Portal</title>
+    <title>Learning Dashboard</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #111; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #222; padding: 30px; border-radius: 15px; border: 1px solid #333; text-align: center; width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        #jitsi-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: none; }
+        body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: #1e293b; padding: 2rem; border-radius: 1rem; border: 1px solid #334155; text-align: center; width: 350px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); }
+        .hidden { display: none; }
+        input { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 0.75rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; margin-top: 1rem; }
+        .stats { display: flex; justify-content: space-around; margin-top: 1.5rem; background: #0f172a; padding: 1rem; border-radius: 0.5rem; }
+        .stat-item span { display: block; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; }
+        .stat-item b { font-size: 1.2rem; color: #38bdf8; }
+        #logout { background: transparent; color: #ef4444; font-size: 0.8rem; margin-top: 1.5rem; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="setup-screen" class="card">
-        <h2>Classroom Login</h2>
-        <input type="text" id="roomInput" placeholder="Class Name (e.g. Math)">
-        <input type="email" id="emailInput" placeholder="Your Email">
-        <button onclick="startProcess()">Check Balance & Join</button>
-        <p id="status" style="font-size: 13px; color: #aaa; margin-top: 15px;"></p>
+    <div id="login-view" class="container">
+        <h2>Member Login</h2>
+        <input type="email" id="emailInput" placeholder="Enter your email">
+        <button onclick="login()">Enter Dashboard</button>
+        <p id="status" style="font-size: 0.8rem; color: #94a3b8; margin-top: 1rem;"></p>
     </div>
 
-    <div id="jitsi-container"></div>
+    <div id="dashboard-view" class="container hidden">
+        <h2 id="greeting">Welcome!</h2>
+        <div class="stats">
+            <div class="stat-item"><span>Balance</span><b id="bal-val">$0</b></div>
+            <div class="stat-item"><span>Lessons</span><b id="les-val">0</b></div>
+        </div>
+        <p style="margin-top: 1.5rem; font-size: 0.9rem;">Class: <strong id="room-display">...</strong></p>
+        <button onclick="startPaidLesson()" id="pay-btn">Join & Pay $10</button>
+        <button id="logout" onclick="logout()">Sign Out</button>
+    </div>
+
+    <div id="jitsi-container" class="hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh;"></div>
 
     <script>
-        // 1. PLACE YOUR SUPABASE DETAILS HERE
         const SUPABASE_URL = 'https://bvhrzessikgxevlaxklv.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aHJ6ZXNzaWtneGV2bGF4a2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NDc3MDYsImV4cCI6MjA4NjMyMzcwNn0.HdDnBpxyURKVaW5p4a-K7KBS7auE_SNCi4JV074RKjE';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Auto-fill room if it's in the link
         const urlParams = new URLSearchParams(window.location.search);
-        const roomFromUrl = urlParams.get('room');
-        if (roomFromUrl) {
-            document.getElementById('roomInput').value = roomFromUrl;
-            document.getElementById('roomInput').style.display = 'none'; 
-        }
+        const roomName = urlParams.get('room') || "Lobby";
+        let currentUser = null;
 
-        async function startProcess() {
-            const room = document.getElementById('roomInput').value;
+        // Auto-login logic
+        window.onload = async () => {
+            const savedEmail = localStorage.getItem('user_auth_email');
+            if (savedEmail) {
+                document.getElementById('status').innerText = "Resuming session...";
+                await fetchUserData(savedEmail);
+            }
+        };
+
+        async function login() {
             const email = document.getElementById('emailInput').value;
-            const status = document.getElementById('status');
+            if (!email) return;
+            await fetchUserData(email);
+        }
 
-            if (!room || !email) {
-                status.innerText = "Please enter both room and email.";
-                return;
-            }
-
-            status.innerText = "Checking your balance...";
-
-            // 2. CHECK THE DATABASE
-            const { data, error } = await supabase.from('profiles').select('balance').eq('email', email).single();
-
+        async function fetchUserData(email) {
+            const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
             if (error || !data) {
-                status.innerText = "User not found. Did you add this email to Supabase?";
+                document.getElementById('status').innerText = "User not found. Check your email!";
+                localStorage.removeItem('user_auth_email');
+                return;
+            }
+            currentUser = data;
+            localStorage.setItem('user_auth_email', email);
+            showDashboard();
+        }
+
+        function showDashboard() {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            document.getElementById('greeting').innerText = "Hey, " + (currentUser.nickname || "Scholar") + "!";
+            document.getElementById('bal-val').innerText = "$" + currentUser.balance;
+            document.getElementById('les-val').innerText = currentUser.lessons_count || 0;
+            document.getElementById('room-display').innerText = roomName;
+        }
+
+        async function startPaidLesson() {
+            if (currentUser.balance < 10) {
+                alert("Insufficient funds! Please top up your balance.");
                 return;
             }
 
-            if (data.balance < 10) { 
-                status.innerText = "Insufficient balance ($" + data.balance + "). Please top up!";
-            } else {
-                status.innerText = "Balance confirmed! Opening class...";
-                launchJitsi(room, email);
+            // DEDUCT MONEY & ADD LESSON
+            const { error } = await supabase.from('profiles')
+                .update({ 
+                    balance: currentUser.balance - 10, 
+                    lessons_count: (currentUser.lessons_count || 0) + 1 
+                })
+                .eq('email', currentUser.email);
+
+            if (!error) {
+                document.getElementById('dashboard-view').classList.add('hidden');
+                document.getElementById('jitsi-container').classList.remove('hidden');
+                const domain = "meet.jit.si";
+                const options = {
+                    roomName: "SigmaClass_" + roomName,
+                    width: "100%", height: "100%",
+                    parentNode: document.querySelector('#jitsi-container'),
+                    userInfo: { displayName: currentUser.nickname || currentUser.email }
+                };
+                new JitsiMeetExternalAPI(domain, options);
             }
         }
 
-        function launchJitsi(roomName, userEmail) {
-            document.getElementById('setup-screen').style.display = 'none';
-            document.getElementById('jitsi-container').style.display = 'block';
-
-            const domain = "meet.jit.si";
-            const options = {
-                roomName: "SansClass_" + roomName,
-                width: "100%",
-                height: "100%",
-                parentNode: document.querySelector('#jitsi-container'),
-                userInfo: { displayName: userEmail }
-            };
-            new JitsiMeetExternalAPI(domain, options);
+        function logout() {
+            localStorage.removeItem('user_auth_email');
+            location.reload();
         }
     </script>
 </body>
