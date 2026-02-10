@@ -1,67 +1,77 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Classroom with Balance</title>
-    <script src="https://bvhrzessikgxevlaxklv.supabase.co"></script>
+    <title>Classroom Portal</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #111; color: white; font-family: sans-serif; text-align: center; padding-top: 50px; }
-        #jitsi-container { height: 100vh; width: 100vw; display: none; position: fixed; top: 0; left: 0; }
-        .box { border: 1px solid #444; padding: 20px; display: inline-block; border-radius: 10px; }
-        input { padding: 10px; border-radius: 5px; border: none; }
-        button { padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; }
+        body { background: #111; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #222; padding: 30px; border-radius: 15px; border: 1px solid #333; text-align: center; width: 300px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        #jitsi-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: none; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" class="box">
-        <h2>Enter Student Email</h2>
-        <input type="email" id="email" placeholder="email@example.com"><br><br>
-        <button onclick="checkBalance()">Enter Classroom</button>
-        <p id="status"></p>
+    <div id="setup-screen" class="card">
+        <h2 id="header">Enter Details</h2>
+        <input type="text" id="roomInput" placeholder="Room Name (e.g. Math101)">
+        <input type="email" id="emailInput" placeholder="Your Email">
+        <button onclick="startProcess()">Join Class</button>
+        <p id="status" style="font-size: 12px; color: #aaa;"></p>
     </div>
 
     <div id="jitsi-container"></div>
 
     <script>
-        // PASTE YOUR SUPABASE INFO HERE
-        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        // 1. FILL THIS OUT with your Supabase details from earlier
+        const SUPABASE_URL = 'https://bvhrzessikgxevlaxklv.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aHJ6ZXNzaWtneGV2bGF4a2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NDc3MDYsImV4cCI6MjA4NjMyMzcwNn0.HdDnBpxyURKVaW5p4a-K7KBS7auE_SNCi4JV074RKjE';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function checkBalance() {
-            const email = document.getElementById('email').value;
+        // Auto-fill room if it's in the link
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomFromUrl = urlParams.get('room');
+        if (roomFromUrl) {
+            document.getElementById('roomInput').value = roomFromUrl;
+            document.getElementById('roomInput').style.display = 'none'; // Hide it if it's already set
+        }
+
+        async function startProcess() {
+            const room = document.getElementById('roomInput').value;
+            const email = document.getElementById('emailInput').value;
             const status = document.getElementById('status');
 
-            // 1. Check user in Supabase
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('balance')
-                .eq('email', email)
-                .single();
-
-            if (error || !data) {
-                status.innerText = "User not found or no balance.";
+            if (!room || !email) {
+                status.innerText = "Please fill in all fields.";
                 return;
             }
 
-            if (data.balance <= 0) {
-                status.innerText = "Insufficient balance! Please top up.";
+            status.innerText = "Checking balance...";
+
+            // 2. CHECK BALANCE in Supabase
+            const { data, error } = await supabase.from('profiles').select('balance').eq('email', email).single();
+
+            if (error || !data) {
+                status.innerText = "Error: User not found in database.";
+                return;
+            }
+
+            if (data.balance < 10) { // Assume 10 is the price per class
+                status.innerText = "Insufficient balance ($" + data.balance + "). Please top up!";
             } else {
-                status.innerText = "Balance confirmed: $" + data.balance + ". Starting call...";
-                startCall(email);
-                
-                // 2. Deduct $10 for the lesson (Optional)
-                await supabase.from('profiles').update({ balance: data.balance - 10 }).eq('email', email);
+                status.innerText = "Success! Opening class...";
+                launchJitsi(room, email);
             }
         }
 
-        function startCall(userEmail) {
-            document.getElementById('login-screen').style.display = 'none';
+        function launchJitsi(roomName, userEmail) {
+            document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('jitsi-container').style.display = 'block';
 
             const domain = "meet.jit.si";
             const options = {
-                roomName: "Class_" + new URLSearchParams(window.location.search).get('room'),
+                roomName: "SansClass_" + roomName,
                 width: "100%",
                 height: "100%",
                 parentNode: document.querySelector('#jitsi-container'),
